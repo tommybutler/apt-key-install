@@ -1,0 +1,24 @@
+# Add this bit of code to your .bashrc if you don't want to install the
+# more-robust script. This is more of a quick and possibly easier way to
+# instantly correct the problem, without the flexibility and error handling
+# that you get for free with the script.  May the force be with you...
+
+apt-key-install ()
+{
+  (( $UID != 0 )) && echo 'ERROR: Please run this command as root or with sudo' && return 1
+
+  [[ -z $1 ]] && echo 'USAGE: apt-key-install [PGP KEY ID] <keyserver>' && return 1
+
+   local timeout=5
+   local keyserver='pgpkeys.mit.edu'
+   local pgpkey=$1
+
+  [[ ! -z $2 ]] && keyserver=$2
+
+   gpg \
+     --keyserver-options timeout=$timeout \
+     --keyserver $keyserver \
+     --recv-key $pgpkey || return 1
+
+   gpg -a --export $pgpkey | apt-key add  -
+ }

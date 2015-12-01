@@ -26,7 +26,7 @@ fi
 usage='USAGE: apt-key-install [PGP KEY ID] <keyserver>'
 
 # check if user provided input
-if [[ -z $1 ]];
+if [[ -z $1 ]]
 then
   echo "$usage"
 
