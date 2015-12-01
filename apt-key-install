@@ -1,0 +1,125 @@
+#!/bin/bash
+
+# AUTHOR:    Tommy Butler
+# VERSION:   1.0
+# DATE:      Tue Dec  1 14:23:30 CST 2015
+# USAGE:     apt-key-install [PGP KEY ID] <keyserver>
+# SUMMARY:   automatically retrieve and register a given repo PGP key with apt
+# COPYRIGHT: Tommy Butler, 2015
+# LICENSE:   GNU GPL version 3 or higher
+
+# user defined variables below (adjust as desired)
+keyserver='pgpkeys.mit.edu' # set the default keyserver you want to use
+timeout=5 # number of seconds to wait on a gpg key retrieval network requests
+
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# make sure this script is running as root
+if (( $UID != 0 ))
+then
+   echo 'ERROR: Please run this command as root or with sudo'
+
+   exit 250
+fi
+
+usage='USAGE: apt-key-install [PGP KEY ID] <keyserver>'
+
+# check if user provided input
+if [[ -z $1 ]];
+then
+  echo "$usage"
+
+  exit 251
+fi
+
+# check if user specified a custom keyserver
+if [[ ! -z $2 ]]
+then
+   keyserver=$2
+fi
+
+# set up some variables
+pgpkey=$1
+
+tempkeyfile=$( mktemp )
+
+temperrfile=$( mktemp )
+
+exit_code=1
+
+# use gpg to import the specified key from the keyserver
+get_import_key ()
+{
+  local temperrfile=$( mktemp )
+
+  if gpg \
+    --keyserver-options timeout=$timeout \
+    --keyserver $keyserver \
+    --recv-key $pgpkey \
+    >/dev/null 2>$temperrfile
+  then
+    return 0
+  else
+    cat <<ERR
+Could not retrieve that PGP key ($pgpkey) from the keyserver ($keyserver)
+The error returned was:
+
+$( cat $temperrfile )
+
+Please verify that you can reach the keyserver, and that they key ID is correct.
+You can also try a different keyserver if you like:
+$usage
+ERR
+
+    return 252
+  fi
+}
+
+# register they gpg key with apt
+apt_key_add ()
+{
+  if gpg -a --export $pgpkey >$tempkeyfile 2>$temperrfile
+  then
+    if apt-key add $tempkeyfile >/dev/null 2>$temperrfile
+    then
+      echo 'OK.  Try running "apt-get update" now'
+
+      return 0
+    else
+      cat <<ERR
+The key was successfully retrieved from the keyserver, but could not be
+registered with apt.  The error returned was:
+
+$( cat $temperrfile )
+
+You can try running the command manually:
+# gpg -a --export $pgpkey | apt-key add -
+ERR
+
+      return 253
+    fi
+  else
+    cat <<ERR
+The key was successfully retrieved from the keyserver, but could not be
+exported from from your gpg keyring.  Check your gpg setup and try again.
+Otherwise, the key can't be registered with apt.  The error returned was:
+
+$( cat $temperrfile )
+
+You can try running the command manually:
+# gpg -a --export $pgpkey | apt-key add -
+ERR
+    return 254
+  fi
+}
+
+# run all tasks
+get_import_key && apt_key_add
+
+exit_code=$?
+
+# clean up
+rm -f $tempkeyfile $temperrfile
+
+# cleanly exit in a manner that reflects the success/failure of this script
+exit $exit_code
