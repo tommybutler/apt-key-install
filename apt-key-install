@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# WARNING:   This software assumes that you trust they PGP key you give it!
 # AUTHOR:    Tommy Butler
 # VERSION:   1.0
 # DATE:      Tue Dec  1 14:23:30 CST 2015
